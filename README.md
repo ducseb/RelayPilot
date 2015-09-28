@@ -6,6 +6,8 @@ RELAYPILOT V2
 BY DUCSEB
 ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domoticz server
 
+<img src="https://cloud.githubusercontent.com/assets/646980/10129874/4af6b26a-65c3-11e5-8261-0ce86ecc34dc.jpg" ></img> 
+
 
 
 ### Usage
