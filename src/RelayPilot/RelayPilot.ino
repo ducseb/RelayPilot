@@ -21,7 +21,7 @@
 #define ID_PARAM_CAPTEUR_DS18B20 1
 #define ID_PARAM_CAPTEUR_DHT11 2
 #define ID_PARAM_CAPTEUR_DHT22 3
-#define ID_PARAM_PROFIL_VERSION 1039
+#define ID_PARAM_PROFIL_VERSION 2002
 
 
 #include <DallasTemperature.h>
@@ -63,6 +63,8 @@ ESP8266WebServer server(80);
 #include  "RelayPilotConfig.h" //Import config
 #include  "RelayPilotConfig_default.h" //Import config
 
+
+
 //Default configuration, editable with web interface
 ConfigurationDuModule ConfigModuleDefaut
 {
@@ -75,7 +77,7 @@ ConfigurationDuModule ConfigModuleDefaut
     DHCPMODE, //Mode DHCP
     SSIDWIFI, // SSID Wifi
     WIFIPASSWORD, // Wifi password
-    ID_PARAM_CAPTEUR_DS18B20, //1=DS18B20 2=DHT11 3=DHT22
+    TYPE_CAPTEUR, //1=DS18B20 2=DHT11 3=DHT22
     false, // Envoi de l'humidite à domoticz    
     IDCAPTEURDOMOTICZTEMP, // Domoticz ID  Temperature
     IDCAPTEURDOMOTICZHUM, // Domoticz ID  Humidite
@@ -115,7 +117,7 @@ int RemonterInfoCapteurTousLesXSecondes=10;
 String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V0.2</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V0.2 BY DUCSEB'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
 String modeChauffage = "Confort";
 String formParametre = String("<form action='/settingsSet' method=\"post\" class='form-horizontal'><fieldset><legend>Paramêtres</legend><div class='form-group'><label class='col-lg-2 control-label' for='parametre'>Valeur à modifier:</label> <div class='col-lg-10'><select class='form-control' type='select' name='parametre' id='parametre'>Valeur à modifier:<option value='ssid'>SSIDWIFI</option><option value='passwordssid'>Password wifi</option><option value='ipDevice'>Adresse IP</option><option value='ipGateway'>IP Passerelle</option><option value='NetMask'>Masque reseau</option><option value='DNS'>Serveur DNS</option><option value='DomoticzDeviceIDTemp'>Domoticz Device ID Temperature</option><option value='DomoticzDeviceIDHum'>Domoticz Device ID Humidite</option>")
-                       +String("<option value='NomDevice'>Nom du l'appareil</option><option value='HostDomoticz'>Adresse du serveur domoticz</option><option value='PortDomoticz'>Port serveur Domoticz</option></select></div></div><div class='form-group'><label class='col-lg-2 control-label' for='valeur'>Valeur:</label><div class='col-lg-10'><input type='text' name='valeur' value='' class='form-control'/></div></div><div class='form-group'> <div class='col-lg-10 col-lg-offset-2'><input type='submit' value='Valider' class='btn btn-success btn-lg btn-block'/></div></div></fieldset></form>");
+                       +String("<option value='NomDevice'>Nom du l'appareil</option><option value='HostDomoticz'>Adresse du serveur domoticz</option><option value='PortDomoticz'>Port serveur Domoticz</option><option value='DHCP'>DHCP (0/1)</option></select></div></div><div class='form-group'><label class='col-lg-2 control-label' for='valeur'>Valeur:</label><div class='col-lg-10'><input type='text' name='valeur' value='' class='form-control'/></div></div><div class='form-group'> <div class='col-lg-10 col-lg-offset-2'><input type='submit' value='Valider' class='btn btn-success btn-lg btn-block'/></div></div></fieldset></form>");
 bool modePointAcces=false;
 
 DHT dht(SENSOR_PIN_DHT, DHT22,15);
@@ -129,7 +131,7 @@ void setup() {
 
   Serial.begin(9600); 
   
-  EEPROM.begin(4096);
+ 
   delay(1000);
   Serial.println("Lecture de la configuration");
 
@@ -631,7 +633,7 @@ void PassageDuChauffageEnModeHorsGel()
 void InitModeAccesPoint()
 { Serial.println("");
  Serial.println("----INIT DU MODE ACCESS POINT----");
-   WiFi.mode(WIFI_AP_STA);
+   WiFi.mode(WIFI_AP);
   WiFi.softAP(ssidAPMode,passwordAPMode);
   //WiFi.softAPConfig(ipNodeMcuAccessPoint,ipGatewayAP,ipSubnetAP);
    Serial.println("");
@@ -652,6 +654,12 @@ void InitModeAccesPoint()
 void EEPROMSaveConfig()
 {
   Serial.println("Sauvegarde la configuration du module dans l'EEPROM");
+  EEPROM.begin(4096);
+  
+  for (int i = 4 ; i < 4096 ; i++) {
+    EEPROM.write(i, 0);
+  }
+  
    EEPROM.put(0,laConfigDuModule);
    EEPROM.end();
 }
@@ -659,9 +667,11 @@ void EEPROMSaveConfig()
 bool EEPROMReadConfig(){
   Serial.println("Lecture la configuration du module dans l'EEPROM");
   ConfigurationDuModule laConfigLue;
+  delay(2000);
+   EEPROM.begin(4096);
    EEPROM.get(0,laConfigLue);
     
-   if(laConfigLue.Init==VersionParametre)
+   if(laConfigLue.Init>=VersionParametre)
    {
     Serial.println("Lecture OK, init OK");
     laConfigDuModule=laConfigLue;
@@ -686,6 +696,8 @@ bool EEPROMReadConfig(){
     Serial.println("Lecture pas OK, init avec les infos de base");
     return false;
    }
+   
+   EEPROM.end();
    
 }
 
@@ -794,6 +806,13 @@ void ChangeParamValue(){
        if(portDomoticz==0)portDomoticz=80;            
        Serial.println("Modification du port domoticz:"+String(laConfigDuModule.hostDomoticzPort));
        laConfigDuModule.hostDomoticzPort=portDomoticz;
+       ConfigModifier=true;
+    }
+    if(parametre=="DHCP")
+    {
+       int valDCHCP= valeur.toInt();
+       if(valDCHCP==0)laConfigDuModule.dhcp=false;
+       else laConfigDuModule.dhcp=true;
        ConfigModifier=true;
     }
     

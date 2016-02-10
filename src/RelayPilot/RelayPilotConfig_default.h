@@ -48,3 +48,8 @@
 #ifndef IDCAPTEURDOMOTICZHUM
 #define IDCAPTEURDOMOTICZHUM 1 //Device of humidity sensors on domoticz
 #endif
+
+#ifndef TYPE_CAPTEUR
+#define TYPE_CAPTEUR ID_PARAM_CAPTEUR_DS18B20
+#endif
+
