@@ -13,15 +13,28 @@
 //  http://IP/arret:    Desactive le chauffage
 //  http://IP/APMode:   Active le mode AP pour la config
 //  http://IP/reboot:   Reboot le module
-//Fonctionne avec un capteur DS18B20 ou un DHT11 ou un DHT22
+//  http://IP/update:   Update the module with OTA ( see http://esp8266.github.io/Arduino/versions/2.1.0-rc2/doc/ota_updates/ota_updates.html)
 
-#define DEBUG
+// Works with DS18B20 temp sensors or DHT11/DHT22 temp/humidity sensor
 
 
-#define ID_PARAM_CAPTEUR_DS18B20 1
+
+// EEPROM config flag, increment this each time EEPROM need to be rewrited
+#define ID_PARAM_PROFIL_VERSION 2010
+
+
+
+
+//Switch between sensors type, assign this value to TYPE_CAPTEUR define
+#define ID_PARAM_CAPTEUR_DS18B20 1 
 #define ID_PARAM_CAPTEUR_DHT11 2
 #define ID_PARAM_CAPTEUR_DHT22 3
-#define ID_PARAM_PROFIL_VERSION 2002
+
+
+//Import the config files
+#include  "RelayPilotConfig.h" //Import config
+#include  "RelayPilotConfig_default.h" //Import config
+
 
 
 #include <DallasTemperature.h>
@@ -31,14 +44,54 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266HTTPUpdateServer.h>
 #include <EEPROM.h>
-MDNSResponder mdns;
-const int VersionParametre=ID_PARAM_PROFIL_VERSION; //Increment this value each time you modifie parameters
 
 
+
+
+
+
+
+//System init
+MDNSResponder mdns; 
+ESP8266WebServer server(80); //Init the webserver
+ADC_MODE(ADC_VCC); //Switch ADC to VCC chip ( for settings info)
+DHT dht(SENSOR_PIN_DHT, DHT22,15);
+ESP8266HTTPUpdateServer httpUpdater(false); //Init the OTA updater, accessible with the /update URL
+OneWire oneWire(SENSOR_PIN_DS18B20);
+DallasTemperature DS18B20(&oneWire);
+
+
+
+
+
+
+String DebugInfo="";
+
+
+int compteurBoucle = 0;
+int RemonterInfoCapteurTousLesXSecondes=DELAY_BETWEEN_SENSORS_SEND_TO_DOMOTICZ;
+
+
+
+String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V0.2</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V0.2 BY DUCSEB'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
+String modeChauffage = "Confort";
+String formParametre = String("<form action='/settingsSet' method=\"post\" class='form-horizontal'><fieldset><legend>Paramêtres</legend><div class='form-group'><label class='col-lg-2 control-label' for='parametre'>Valeur à modifier:</label> <div class='col-lg-10'><select class='form-control' type='select' name='parametre' id='parametre'>Valeur à modifier:<option value='ssid'>SSIDWIFI</option><option value='passwordssid'>Password wifi</option><option value='ipDevice'>Adresse IP</option><option value='ipGateway'>IP Passerelle</option><option value='NetMask'>Masque reseau</option><option value='DNS'>Serveur DNS</option><option value='DomoticzDeviceIDTemp'>Domoticz Device ID Temperature</option><option value='DomoticzDeviceIDHum'>Domoticz Device ID Humidite</option>")
+                       +String("<option value='NomDevice'>Nom du l'appareil</option><option value='HostDomoticz'>Adresse du serveur domoticz</option><option value='PortDomoticz'>Port serveur Domoticz</option><option value='DHCP'>DHCP (0/1)</option></select></div></div><div class='form-group'><label class='col-lg-2 control-label' for='valeur'>Valeur:</label><div class='col-lg-10'><input type='text' name='valeur' value='' class='form-control'/></div></div><div class='form-group'> <div class='col-lg-10 col-lg-offset-2'><input type='submit' value='Valider' class='btn btn-success btn-lg btn-block'/></div></div></fieldset></form>");
+
+
+
+
+
+
+
+
+//Base struct for saving the parameters to EEPROM
 struct ConfigurationDuModule {
   int Init;
-  char nomDuDevice[11];
+  char nomDuDevice[255];
   IPAddress adresseIP;
   IPAddress adresseIPGateway;
   IPAddress NetMask;
@@ -54,19 +107,8 @@ struct ConfigurationDuModule {
   int hostDomoticzPort;
 };
 
-
-
-ESP8266WebServer server(80);
-
-
-
-#include  "RelayPilotConfig.h" //Import config
-#include  "RelayPilotConfig_default.h" //Import config
-
-
-
 //Default configuration, editable with web interface
-ConfigurationDuModule ConfigModuleDefaut
+ConfigurationDuModule ConfigModuleDefaut // Defauklt config
 {
     ID_PARAM_PROFIL_VERSION, // Parameter InitValue (change each time you modify the content)
     MODULENAME, //Name of the device
@@ -86,41 +128,17 @@ ConfigurationDuModule ConfigModuleDefaut
 };
 
 
-
-ConfigurationDuModule laConfigDuModule;
-
+ConfigurationDuModule laConfigDuModule; //Config in use
 
 
 
 
 
-ADC_MODE(ADC_VCC); //Switch ADC to VCC chip ( for settings info)
-
-
-
-#define SENSOR_PIN_DS18B20 5  // DS18B20 pin (D1 on ESP8266 NodeMCU dev board)
-#define SENSOR_PIN_DHT 4  // DHT pin (D1 on ESP8266 NodeMCU dev board)
-#define RELAY1_PIN 13  // RELAY PIN 1 : ALTERNANCE NEGATIVE
-#define RELAY2_PIN 15  // RELAY PIN 2 : ALTERNANCE POSITIVE
-#define PIN_MODE_CONFIG 16 //PIN POUR LE MODE CONFIG
-
-
-
+// Acces point config
+bool modePointAcces=false;
 const char* ssidAPMode = laConfigDuModule.nomDuDevice;
 const char* passwordAPMode =laConfigDuModule.nomDuDevice; // AP Mode wifi password
-String DebugInfo="";
-bool ValeurPinExterne=false;
-OneWire oneWire(SENSOR_PIN_DS18B20);
-DallasTemperature DS18B20(&oneWire);
-int compteurBoucle = 0;
-int RemonterInfoCapteurTousLesXSecondes=10;
-String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V0.2</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V0.2 BY DUCSEB'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
-String modeChauffage = "Confort";
-String formParametre = String("<form action='/settingsSet' method=\"post\" class='form-horizontal'><fieldset><legend>Paramêtres</legend><div class='form-group'><label class='col-lg-2 control-label' for='parametre'>Valeur à modifier:</label> <div class='col-lg-10'><select class='form-control' type='select' name='parametre' id='parametre'>Valeur à modifier:<option value='ssid'>SSIDWIFI</option><option value='passwordssid'>Password wifi</option><option value='ipDevice'>Adresse IP</option><option value='ipGateway'>IP Passerelle</option><option value='NetMask'>Masque reseau</option><option value='DNS'>Serveur DNS</option><option value='DomoticzDeviceIDTemp'>Domoticz Device ID Temperature</option><option value='DomoticzDeviceIDHum'>Domoticz Device ID Humidite</option>")
-                       +String("<option value='NomDevice'>Nom du l'appareil</option><option value='HostDomoticz'>Adresse du serveur domoticz</option><option value='PortDomoticz'>Port serveur Domoticz</option><option value='DHCP'>DHCP (0/1)</option></select></div></div><div class='form-group'><label class='col-lg-2 control-label' for='valeur'>Valeur:</label><div class='col-lg-10'><input type='text' name='valeur' value='' class='form-control'/></div></div><div class='form-group'> <div class='col-lg-10 col-lg-offset-2'><input type='submit' value='Valider' class='btn btn-success btn-lg btn-block'/></div></div></fieldset></form>");
-bool modePointAcces=false;
 
-DHT dht(SENSOR_PIN_DHT, DHT22,15);
 
 
 
@@ -129,7 +147,7 @@ DHT dht(SENSOR_PIN_DHT, DHT22,15);
 void setup() {  
 
 
-  Serial.begin(9600); 
+  Serial.begin(115200); 
   
  
   delay(1000);
@@ -180,12 +198,17 @@ void setup() {
     Serial.println(WiFi.localIP());  
     
     //Chargement du MDNS responder
-    if (mdns.begin(laConfigDuModule.nomDuDevice, WiFi.localIP())) {Serial.println("MDNS responder started");}
+    if (mdns.begin(laConfigDuModule.nomDuDevice, WiFi.localIP())) {
+      Serial.println("MDNS responder started");
+       mdns.addService("http", "tcp", 80);
+      }
   }
+  
+  
+  httpUpdater.setup(&server);
  
 
- 
-
+  
   //Definition des commandes HTTP
   server.on("/", PageAcceuil);
   server.on("/temp", PageTemp);  
@@ -220,7 +243,7 @@ void setup() {
   digitalWrite(RELAY1_PIN,LOW);
   digitalWrite(RELAY2_PIN,HIGH);
 
-
+ Serial.println("Initialisation des relays2");
   //Detection du capteur
   if(laConfigDuModule.Capteur==ID_PARAM_CAPTEUR_DS18B20) // Capteur DS18B20
   {
@@ -316,9 +339,13 @@ float GetTemperateureDS18B20(bool sendInfo)
    DS18B20.requestTemperatures(); 
    t = DS18B20.getTempCByIndex(0); 
    AjouteInfoDebug("Temperature: "+String(t)+" *C ");     
+
+    //8¨°C is the default temperature of the DS18B22 at boot
+   if(t<85){
+    if(sendInfo)SendInfoToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp); 
+   }
     
     
-    if(sendInfo)SendInfoToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp);
 
      return t;
 }
@@ -370,9 +397,9 @@ void SendInfoToDomoticz(float t,float h,bool modeHumidite,int deviceID)
   AjouteInfoDebug("Envoi info sur Domoticz......................");
   WiFiClient client;
   
-
-  Serial.println("Hote : "+String(laConfigDuModule.hostDomoticz));
-  Serial.println("Port : "+String(laConfigDuModule.hostDomoticzPort));
+  AjouteInfoDebug("Hote : "+String(laConfigDuModule.hostDomoticz));
+  AjouteInfoDebug("Port : "+String(laConfigDuModule.hostDomoticzPort));
+  
 
   
   
@@ -457,6 +484,11 @@ void PageAcceuil()
   InfoServeur+=ConstuireLigneAccueil("SSID wifi",String(laConfigDuModule.SSIDWifi));
   InfoServeur+=ConstuireLigneAccueil("Password wifi",String(laConfigDuModule.PasswordWifi));
   InfoServeur+=ConstuireLigneAccueil("Force du wifi",String(WiFi.RSSI())+"dbm");
+  InfoServeur+=ConstuireLigneAccueil("IP du module (STA)",String(WiFi.localIP()));
+  InfoServeur+=ConstuireLigneAccueil("IP du module (AP)",String(WiFi.softAPIP()));
+  InfoServeur+=ConstuireLigneAccueil("MAC address du module (STA)",String(WiFi.macAddress()));
+  InfoServeur+=ConstuireLigneAccueil("MAC address du module (AP)",String(WiFi.softAPmacAddress()));
+  
   InfoServeur+="</ul><ul class='list-group'>";
 InfoServeur+=ConstuireLigneAccueil("ID du capteur Domoticz Temperature",String(laConfigDuModule.DomoticzDeviceIDTemp));
 InfoServeur+=ConstuireLigneAccueil("ID du capteur Domoticz Humidite (seul)",String(laConfigDuModule.DomoticzDeviceIDHum));
@@ -654,11 +686,15 @@ void InitModeAccesPoint()
 void EEPROMSaveConfig()
 {
   Serial.println("Sauvegarde la configuration du module dans l'EEPROM");
+
   EEPROM.begin(4096);
+
+
+
+    
+  EEPROM.begin(sizeof(ConfigModuleDefaut));
   
-  for (int i = 4 ; i < 4096 ; i++) {
-    EEPROM.write(i, 0);
-  }
+
   
    EEPROM.put(0,laConfigDuModule);
    EEPROM.end();
@@ -668,10 +704,10 @@ bool EEPROMReadConfig(){
   Serial.println("Lecture la configuration du module dans l'EEPROM");
   ConfigurationDuModule laConfigLue;
   delay(2000);
-   EEPROM.begin(4096);
+   EEPROM.begin(sizeof(ConfigModuleDefaut));
    EEPROM.get(0,laConfigLue);
     
-   if(laConfigLue.Init>=VersionParametre)
+   if(laConfigLue.Init>=ID_PARAM_PROFIL_VERSION)
    {
     Serial.println("Lecture OK, init OK");
     laConfigDuModule=laConfigLue;
@@ -697,7 +733,7 @@ bool EEPROMReadConfig(){
     return false;
    }
    
-   EEPROM.end();
+   EEPROM.commit();
    
 }
 

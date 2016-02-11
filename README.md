@@ -2,7 +2,7 @@
 ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domoticz server
 
 
-RELAYPILOT V2
+RELAYPILOT V2.1
 BY DUCSEB
 ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domoticz server
 
@@ -20,13 +20,14 @@ ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domo
 - http://IP/arret:    Heater stop mode
 - http://IP/APMode:   Activate AP mode for setting , SSID=device name , password = device name
 - http://IP/reboot:   Reboot
+- http://IP/update:  Update the module with OTA ( see http://esp8266.github.io/Arduino/versions/2.1.0-rc2/doc/ota_updates/ota_updates.html)
 
 Works with DS18B20 sensors or DHT11/DHT22 temp/humidity sensors
 
 
 
 #### Required devices
-- NodeMCU 0.9 or any ESP8266-12 compatible module
+- NodeMCU 0.9 or any ESP8266-12 ESP8266-12E compatible module
 - DS18B20 temperature sensors or DHT11/DHT22 temperature/humidity sensors
 - 2 NPN 2n2222 Transistor
 - 2 4.7KΩ Resistor (for ESP8666 to Transistor base)
@@ -34,11 +35,27 @@ Works with DS18B20 sensors or DHT11/DHT22 temp/humidity sensors
 - 2 Diode 1N4007 (or any 230V 1A capable diode)
 
 ### Required Software
-- Arduino IDE for ESP8266 (https://github.com/esp8266/Arduino)
+- Arduino IDE 1.6.5 (1.6.6 and later have problem with ESP8226/arduino project)
+- Arduino for ESP8266 V.2.1.0 RC2 (https://github.com/esp8266/Arduino)
 - DHT11/DHT22 Library https://github.com/adafruit/DHT-sensor-library
-- DS18B20 DallasTemperature Library 
+- DS18B20 DallasTemperature Library https://github.com/milesburton/Arduino-Temperature-Control-Library.git
+- OneWire library http://www.pjrc.com/teensy/td_libs_OneWire.html
+
 - A Domoticz server 
 
 ### Usage
 Go to src an open RelayPilot.ino in the ARduino IDE
 Edit RelayPilotConfig.h with your config info (ssid wifi, password,etc...)
+
+
+ChangeLog:
+
+V2.1 - 2016/02/11
+------------------------------------
+- Add few parameters to config file 
+- Add OTA updade
+- Readme change
+- Build on ESP8266/arduino  V 2.1.0 RC2
+- Add fix for 85°C boot value of DS18B20 
+
+
