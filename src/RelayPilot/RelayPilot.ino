@@ -20,7 +20,7 @@
 
 
 // EEPROM config flag, increment this each time EEPROM need to be rewrited
-#define ID_PARAM_PROFIL_VERSION 2010
+#define ID_PARAM_PROFIL_VERSION 2015
 
 
 
@@ -120,7 +120,7 @@ ConfigurationDuModule ConfigModuleDefaut // Defauklt config
     SSIDWIFI, // SSID Wifi
     WIFIPASSWORD, // Wifi password
     TYPE_CAPTEUR, //1=DS18B20 2=DHT11 3=DHT22
-    false, // Envoi de l'humidite à domoticz    
+    SEND_HUMIDITY_DHT22, // Envoi de l'humidite à domoticz    
     IDCAPTEURDOMOTICZTEMP, // Domoticz ID  Temperature
     IDCAPTEURDOMOTICZHUM, // Domoticz ID  Humidite
     HOSTDOMOTICZ,

@@ -78,3 +78,7 @@
 #ifndef DELAY_BETWEEN_SENSORS_SEND_TO_DOMOTICZ
 #define DELAY_BETWEEN_SENSORS_SEND_TO_DOMOTICZ 20 //time between to sending of data to domoticz
 #endif
+
+#ifndef SEND_HUMIDITY_DHT22
+#define SEND_HUMIDITY_DHT22 true
+#endif
