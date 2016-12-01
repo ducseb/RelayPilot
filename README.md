@@ -2,7 +2,7 @@
 ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domoticz server
 
 
-RELAYPILOT V2.1
+RELAYPILOT V2.2
 BY DUCSEB
 ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domoticz server
 
@@ -13,6 +13,9 @@ ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domo
 ### Usage
 - http://IP/temp :    Show temperature
 - http://IP/hum :     Show humidity
+- http://IP/tempsend:  Send temperature data to domoticz server
+- http://IP/humsend: Send Humidity data to domoticz server
+- http://IP/heatstatussend:  Send heater status do domoticz server (text sensor)
 - http://IP/settings: Show setttings s ( host domoticz, port, ssid wifi, wifi password, etc...)
 - http://IP/confort:  Heater Confort mode
 - http://IP/eco:      Heater Eco mode
@@ -32,7 +35,7 @@ Works with DS18B20 sensors or DHT11/DHT22 temp/humidity sensors
 - 2 NPN 2n2222 Transistor
 - 2 4.7KΩ Resistor (for ESP8666 to Transistor base)
 - 2 1KΩ Resistor (for 5V to Transistor emmiter)
-- 2 Diode 1N4007 (or any 230V 1A capable diode)
+- 2 1N4007 Diode (or any 230V 1A capable diode)
 
 ### Required Software and plugin ( plugin is available from Arduino Plugin manager)
 - Arduino IDE 1.6.12
@@ -50,6 +53,11 @@ Edit RelayPilotConfig.h with your config info (ssid wifi, password,etc...)
 
 
 ChangeLog:
+
+V2.2 - 2016/12/01
+------------------------------------
+- Add compatibility to latest ESP8266 Arduino SDK and Arduino IDE 1.6.12
+- Add Heater status can now inform Domoticz server about is state 
 
 V2.1 - 2016/02/11
 ------------------------------------

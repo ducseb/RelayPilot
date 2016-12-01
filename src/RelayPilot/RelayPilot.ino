@@ -4,10 +4,11 @@
 // BY DUCSEB
 // CONTROLE DE FIL PILOTE RADIATEUR  VIA UN MODULE ESP8266 ET UN SERVEUR DOMITICZ
 // USAGE:
-//  http://IP/temp :    Affichage de la temperature
-//  http://IP/hum :     Affichage de l'humidite
-//  http://IP/settings: Réglages des paramêtres ( host domoticz, port, ssid wifi, wifi password, etc...)
-//  http://IP/confort:  Mode confort sur le chauffage
+//  http://IP/temp :    Show current temperature 
+//  http://IP/tempsend :    Show current temperature and send to Domoticz server
+//  http://IP/hum :     Show humidity
+//  http://IP/settings: Settings page  ( host domoticz, port, ssid wifi, wifi password, etc...)
+//  http://IP/confort:  Comfort mode sur le chauffage
 //  http://IP/eco:      Active le mode Eco sur le chauffage
 //  http://IP/hors-gel: Active le mode Hors gel sur le chauffage   
 //  http://IP/arret:    Desactive le chauffage
@@ -102,7 +103,9 @@ struct ConfigurationDuModule {
   int Capteur;
   bool SendHumidite;
   int DomoticzDeviceIDTemp;  
-  int DomoticzDeviceIDHum;  
+  int DomoticzDeviceIDHum;
+  bool SendHeaterStatusToDomoticz;
+  int DomoticzHeaterSensorsID;  
   char hostDomoticz[255];
   int hostDomoticzPort;
 };
@@ -123,6 +126,8 @@ ConfigurationDuModule ConfigModuleDefaut // Defauklt config
     SEND_HUMIDITY_DHT22, // Envoi de l'humidite à domoticz    
     IDCAPTEURDOMOTICZTEMP, // Domoticz ID  Temperature
     IDCAPTEURDOMOTICZHUM, // Domoticz ID  Humidite
+    SEND_HEATER_STATUS_DOMOTICZ, //Send heater status data to domoticz server (text sensors)
+    ID_HEATER_DOMOTICZ, //Heater status text sensors ID
     HOSTDOMOTICZ,
     HOSTDOMOTICZPORT //Domoticz Port
 };
@@ -213,6 +218,7 @@ void setup() {
   server.on("/", PageAcceuil);
   server.on("/temp", PageTemp);  
   server.on("/tempsend", PageTempAvecEnvoiInfo);
+  server.on("/heatstatussend", PageHeaterStatusAvecEnvoiInfo);
   server.on("/hum", PageHum);  
   server.on("/humsend", PageHumAvecEnvoiInfo);
   server.on("/confort", PassageDuChauffageEnModeConfort);
@@ -296,6 +302,13 @@ void loop()
        
         //GetHumiditeDHT(true);
       }
+
+
+      //Check if heater status must be send to domoticz server
+      if(laConfigDuModule.SendHeaterStatusToDomoticz)
+      {
+        GetStatusHeater(true);
+      }
       
         
      
@@ -328,7 +341,7 @@ void loop()
 
 
 
-//------------ FONCTION DE RECUPERATION DE LA TEMPERATURE---------------------------------------------------------------
+//------------ GET TEMP INFORMATION FROM SENSORS---------------------------------------------------------------
 
 
 float GetTemperateureDS18B20(bool sendInfo)
@@ -342,7 +355,7 @@ float GetTemperateureDS18B20(bool sendInfo)
 
     //8¨°C is the default temperature of the DS18B22 at boot
    if(t<85){
-    if(sendInfo)SendInfoToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp); 
+    if(sendInfo)SendTempHumidityToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp); 
    }
     
     
@@ -356,7 +369,7 @@ float GetTemperateureDHT(bool sendInfo)
    AjouteInfoDebug("Temperature: "+String(t)+" *C ");     
     
     
-    if(sendInfo)SendInfoToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp);
+    if(sendInfo)SendTempHumidityToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp);
 
      return t;
 }
@@ -367,7 +380,7 @@ float GetTemperateureHumDHT(bool sendInfo)
    float h = dht.readHumidity();
    AjouteInfoDebug("Humidity: "+String(h)+" purcent ");      
     
-    if(sendInfo)SendInfoToDomoticz(t,h,true,laConfigDuModule.DomoticzDeviceIDTemp);
+    if(sendInfo)SendTempHumidityToDomoticz(t,h,true,laConfigDuModule.DomoticzDeviceIDTemp);
 
      return t;
 }
@@ -377,22 +390,59 @@ float GetHumiditeDHT(bool sendInfo)
    AjouteInfoDebug("Humidity: "+String(h)+" purcent ");      
     
     
-    if(sendInfo)SendInfoToDomoticz(h,0,false,laConfigDuModule.DomoticzDeviceIDHum);
+    if(sendInfo)SendTempHumidityToDomoticz(h,0,false,laConfigDuModule.DomoticzDeviceIDHum);
 
      return h;
+}
+
+
+void GetStatusHeater(bool sendInfo)
+{
+  
+   AjouteInfoDebug("Mode chauffage: "+modeChauffage);     
+    
+    
+    if(sendInfo)SendTextStatusToDomoticz(modeChauffage,laConfigDuModule.DomoticzHeaterSensorsID);
+
+  return;
 }
 
 
 
 
 
+//----------------SEND DATA TO DOMOTICZ SERVER ----------------------------------------------
 
 
+void SendTempHumidityToDomoticz(float t,float h,bool modeHumidite,int deviceID)
+{
 
-//----------------ENVOI DES INFOS AUX SERVEURS WEB ----------------------------------------------
+    // We now create a URI for the request
+  String url = "/json.htm?type=command&param=udevice&idx=";
+  url+=deviceID;
+  url+="&nvalue=0&svalue=";
+  url += t;
+  if(modeHumidite)
+  {
+    url +=";"+String(h)+";0";
+  }
 
+  SendDataToDomoticzServer(url);
+}
 
-void SendInfoToDomoticz(float t,float h,bool modeHumidite,int deviceID)
+void SendTextStatusToDomoticz(String text,int deviceID)
+{
+
+    // We now create a URI for the request
+  String url = "/json.htm?type=command&param=udevice&idx=";
+  url+=deviceID;
+  url+="&nvalue=0&svalue=";
+  url += text;
+
+  SendDataToDomoticzServer(url);
+}
+
+void SendDataToDomoticzServer(String url)
 {
   AjouteInfoDebug("Envoi info sur Domoticz......................");
   WiFiClient client;
@@ -408,15 +458,8 @@ void SendInfoToDomoticz(float t,float h,bool modeHumidite,int deviceID)
     return;
   }
   
-  // We now create a URI for the request
-  String url = "/json.htm?type=command&param=udevice&idx=";
-  url+=deviceID;
-  url+="&nvalue=0&svalue=";
-  url += t;
-  if(modeHumidite)
-  {
-    url +=";"+String(h)+";0";
-  }
+  
+  
   
   
    //AjouteInfoDebug("Requesting URL: ");
@@ -437,7 +480,6 @@ void SendInfoToDomoticz(float t,float h,bool modeHumidite,int deviceID)
  AjouteInfoDebug("closing connection");
  client.stop();
 }
-
 
 
 
@@ -592,6 +634,15 @@ void PageHumAvecEnvoiInfo()
     String texte= "<b>Humidite</b>:"+String(humidite)+"<br/><br/><B>Info de debug</b>:<br/>"+DebugInfo;    
       EnvoyerInfoClientHTTPAvecCadre(texte,"Humidité avec envoi info");   
    
+}
+
+void PageHeaterStatusAvecEnvoiInfo()
+{ 
+   
+    
+     String texte= "<b>Heater Status</b>:"+modeChauffage+"<br/><br/><B>Info de debug</b>:<br/>"+DebugInfo; 
+     EnvoyerInfoClientHTTPAvecCadre(texte,"Etat chauffage avec envoi info sur serveur");   
+     
 }
 
 void NonDisponible() {  
