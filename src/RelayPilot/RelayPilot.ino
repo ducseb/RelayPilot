@@ -20,7 +20,7 @@
 
 
 // EEPROM config flag, increment this each time EEPROM need to be rewrited
-#define ID_PARAM_PROFIL_VERSION 2015
+#define ID_PARAM_PROFIL_VERSION 2017
 
 
 
@@ -34,7 +34,7 @@
 //Import the config files
 #include  "RelayPilotConfig.h" //Import config
 #include  "RelayPilotConfig_default.h" //Import config
-
+#include  "RelayPilotConfig_salon.h" //Import config
 
 
 #include <DallasTemperature.h>
