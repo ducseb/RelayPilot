@@ -34,12 +34,13 @@ Works with DS18B20 sensors or DHT11/DHT22 temp/humidity sensors
 - 2 1KΩ Resistor (for 5V to Transistor emmiter)
 - 2 Diode 1N4007 (or any 230V 1A capable diode)
 
-### Required Software
-- Arduino IDE 1.6.5 (1.6.6 and later have problem with ESP8226/arduino project)
-- Arduino for ESP8266 V.2.1.0 RC2 (https://github.com/esp8266/Arduino)
+### Required Software and plugin ( plugin is available from Arduino Plugin manager)
+- Arduino IDE 1.6.12
+- Arduino for ESP8266 V.2.3.0
 - DHT11/DHT22 Library https://github.com/adafruit/DHT-sensor-library
 - DS18B20 DallasTemperature Library https://github.com/milesburton/Arduino-Temperature-Control-Library.git
 - OneWire library http://www.pjrc.com/teensy/td_libs_OneWire.html
+- Adafruit Unified Sensor Library https://github.com/adafruit/Adafruit_Sensor
 
 - A Domoticz server 
 
