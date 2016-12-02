@@ -1,6 +1,6 @@
 
 
-// RELAYPILOT V2.2.1
+// RELAYPILOT V2.2.11
 // BY DUCSEB
 // CONTROLE DE FIL PILOTE RADIATEUR  VIA UN MODULE ESP8266 ET UN SERVEUR DOMITICZ
 // USAGE:
@@ -21,7 +21,7 @@
 
 
 // EEPROM config flag, increment this each time EEPROM need to be rewrited
-#define ID_PARAM_PROFIL_VERSION 2018
+#define ID_PARAM_PROFIL_VERSION 2019
 
 
 
@@ -35,7 +35,7 @@
 //Import the config files
 #include  "RelayPilotConfig.h" //Import config
 #include  "RelayPilotConfig_default.h" //Import config
-#include  "RelayPilotConfig_salon.h" //Import config
+
 
 
 #include <DallasTemperature.h>
@@ -407,8 +407,8 @@ void GetStatusHeater(bool modeText,bool sendInfo)
     if(modeChauffage!="arret")modeBoolean=1;
     
     if(sendInfo){
-      if(modeText)SendTextStatusToDomoticz(modeChauffage,laConfigDuModule.DomoticzHeaterSensorsID);
-      else SendTextStatusToDomoticz(modeBoolean,laConfigDuModule.DomoticzHeaterSensorsID);
+      if(modeText)SendTextStatusToDomoticz(modeChauffage,laConfigDuModule.DomoticzHeaterSensorsID,false);
+      else SendTextStatusToDomoticz(modeBoolean,laConfigDuModule.DomoticzHeaterSensorsID,true);
     }
 
   return;
@@ -427,24 +427,34 @@ void SendTempHumidityToDomoticz(float t,float h,bool modeHumidite,int deviceID)
     // We now create a URI for the request
   String url = "/json.htm?type=command&param=udevice&idx=";
   url+=deviceID;
+  
   url+="&nvalue=0&svalue=";
   url += t;
   if(modeHumidite)
   {
     url +=";"+String(h)+";0";
   }
+  
+ 
 
   SendDataToDomoticzServer(url);
 }
 
-void SendTextStatusToDomoticz(String text,int deviceID)
+void SendTextStatusToDomoticz(String text,int deviceID,bool modeNvalue)
 {
 
     // We now create a URI for the request
   String url = "/json.htm?type=command&param=udevice&idx=";
   url+=deviceID;
-  url+="&nvalue=0&svalue=";
+  if(modeNvalue){
+     url+="&nvalue=";
   url += text;
+  }
+  else{
+     url+="&nvalue=0&svalue=";
+  url += text;
+  }
+ 
 
   SendDataToDomoticzServer(url);
 }
