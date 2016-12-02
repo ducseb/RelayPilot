@@ -52,8 +52,10 @@ Go to src an open RelayPilot.ino in the ARduino IDE
 Edit RelayPilotConfig.h with your config info (ssid wifi, password,etc...)
 
 
-ChangeLog:
+ChangeLog
+
 V2.2.1 - 2016/12/02
+------------------------------------
 - Heater status can be send to domoticz has text or boolean (on/off)
 
 V2.2 - 2016/12/01
