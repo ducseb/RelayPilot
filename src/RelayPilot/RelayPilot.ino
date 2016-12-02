@@ -1,6 +1,6 @@
 
 
-// RELAYPILOT V2
+// RELAYPILOT V2.2.1
 // BY DUCSEB
 // CONTROLE DE FIL PILOTE RADIATEUR  VIA UN MODULE ESP8266 ET UN SERVEUR DOMITICZ
 // USAGE:
@@ -8,7 +8,7 @@
 //  http://IP/tempsend :    Show current temperature and send to Domoticz server
 //  http://IP/hum :     Show humidity
 //  http://IP/settings: Settings page  ( host domoticz, port, ssid wifi, wifi password, etc...)
-//  http://IP/confort:  Comfort mode sur le chauffage
+//  http://IP/comfort:  Comfort mode sur le chauffage
 //  http://IP/eco:      Active le mode Eco sur le chauffage
 //  http://IP/hors-gel: Active le mode Hors gel sur le chauffage   
 //  http://IP/arret:    Desactive le chauffage
@@ -21,7 +21,7 @@
 
 
 // EEPROM config flag, increment this each time EEPROM need to be rewrited
-#define ID_PARAM_PROFIL_VERSION 2017
+#define ID_PARAM_PROFIL_VERSION 2018
 
 
 
@@ -77,8 +77,8 @@ int RemonterInfoCapteurTousLesXSecondes=DELAY_BETWEEN_SENSORS_SEND_TO_DOMOTICZ;
 
 
 
-String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V0.2</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V0.2 BY DUCSEB'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
-String modeChauffage = "Confort";
+String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V2.2.1</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V2.2.1 BY DUCSEB'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
+String modeChauffage = "Comfort";
 String formParametre = String("<form action='/settingsSet' method=\"post\" class='form-horizontal'><fieldset><legend>Paramêtres</legend><div class='form-group'><label class='col-lg-2 control-label' for='parametre'>Valeur à modifier:</label> <div class='col-lg-10'><select class='form-control' type='select' name='parametre' id='parametre'>Valeur à modifier:<option value='ssid'>SSIDWIFI</option><option value='passwordssid'>Password wifi</option><option value='ipDevice'>Adresse IP</option><option value='ipGateway'>IP Passerelle</option><option value='NetMask'>Masque reseau</option><option value='DNS'>Serveur DNS</option><option value='DomoticzDeviceIDTemp'>Domoticz Device ID Temperature</option><option value='DomoticzDeviceIDHum'>Domoticz Device ID Humidite</option>")
                        +String("<option value='NomDevice'>Nom du l'appareil</option><option value='HostDomoticz'>Adresse du serveur domoticz</option><option value='PortDomoticz'>Port serveur Domoticz</option><option value='DHCP'>DHCP (0/1)</option></select></div></div><div class='form-group'><label class='col-lg-2 control-label' for='valeur'>Valeur:</label><div class='col-lg-10'><input type='text' name='valeur' value='' class='form-control'/></div></div><div class='form-group'> <div class='col-lg-10 col-lg-offset-2'><input type='submit' value='Valider' class='btn btn-success btn-lg btn-block'/></div></div></fieldset></form>");
 
@@ -105,6 +105,7 @@ struct ConfigurationDuModule {
   int DomoticzDeviceIDTemp;  
   int DomoticzDeviceIDHum;
   bool SendHeaterStatusToDomoticz;
+  bool HeaterStatusInText;
   int DomoticzHeaterSensorsID;  
   char hostDomoticz[255];
   int hostDomoticzPort;
@@ -126,7 +127,8 @@ ConfigurationDuModule ConfigModuleDefaut // Defauklt config
     SEND_HUMIDITY_DHT22, // Envoi de l'humidite à domoticz    
     IDCAPTEURDOMOTICZTEMP, // Domoticz ID  Temperature
     IDCAPTEURDOMOTICZHUM, // Domoticz ID  Humidite
-    SEND_HEATER_STATUS_DOMOTICZ, //Send heater status data to domoticz server (text sensors)
+    SEND_HEATER_STATUS_DOMOTICZ, //Send heater status data to domoticz server (text sensors),
+    HEATER_STATUS_TEXT_MODE, //Send heater status has text if set to true
     ID_HEATER_DOMOTICZ, //Heater status text sensors ID
     HOSTDOMOTICZ,
     HOSTDOMOTICZPORT //Domoticz Port
@@ -221,7 +223,7 @@ void setup() {
   server.on("/heatstatussend", PageHeaterStatusAvecEnvoiInfo);
   server.on("/hum", PageHum);  
   server.on("/humsend", PageHumAvecEnvoiInfo);
-  server.on("/confort", PassageDuChauffageEnModeConfort);
+  server.on("/comfort", PassageDuChauffageEnModeComfort);
   server.on("/eco", PassageDuChauffageEnModeECO);
   server.on("/hors-gel", PassageDuChauffageEnModeHorsGel);
   server.on("/arret", PassageDuChauffageEnModeArret);
@@ -307,7 +309,7 @@ void loop()
       //Check if heater status must be send to domoticz server
       if(laConfigDuModule.SendHeaterStatusToDomoticz)
       {
-        GetStatusHeater(true);
+        GetStatusHeater(laConfigDuModule.HeaterStatusInText,true);
       }
       
         
@@ -396,13 +398,18 @@ float GetHumiditeDHT(bool sendInfo)
 }
 
 
-void GetStatusHeater(bool sendInfo)
+void GetStatusHeater(bool modeText,bool sendInfo)
 {
   
    AjouteInfoDebug("Mode chauffage: "+modeChauffage);     
+  
+    String modeBoolean="0";
+    if(modeChauffage!="arret")modeBoolean=1;
     
-    
-    if(sendInfo)SendTextStatusToDomoticz(modeChauffage,laConfigDuModule.DomoticzHeaterSensorsID);
+    if(sendInfo){
+      if(modeText)SendTextStatusToDomoticz(modeChauffage,laConfigDuModule.DomoticzHeaterSensorsID);
+      else SendTextStatusToDomoticz(modeBoolean,laConfigDuModule.DomoticzHeaterSensorsID);
+    }
 
   return;
 }
@@ -673,11 +680,11 @@ void EnvoyerInfoClientHTTPAvecCadre(String leTexte,String LeTitre)
 
 //---------------- FONCTION POUR LA GESTION DU CHAUFFAGE -------------------------------
 // PAS DE SIGNAL
-void PassageDuChauffageEnModeConfort()
+void PassageDuChauffageEnModeComfort()
 {
     digitalWrite(RELAY1_PIN,LOW);
     digitalWrite(RELAY2_PIN,LOW);
-    modeChauffage="Confort";
+    modeChauffage="Comfort";
     String texte= "Activation du mode "+modeChauffage+" <b>OK</b>";    
     texte+="<br/><br/><a href='/' class='btn btn-primary'>Retour accueil</a>";
     EnvoyerInfoClientHTTPAvecCadre(texte,"Changement Etat chauffage");

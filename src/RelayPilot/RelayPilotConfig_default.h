@@ -58,6 +58,20 @@
 #define SENSOR_PIN_DS18B20 D1  // DS18B20 pin (D1 on ESP8266 NodeMCU dev board)
 #endif
 
+
+#ifndef SEND_HEATER_STATUS_DOMOTICZ
+#define SEND_HEATER_STATUS_DOMOTICZ false // Send the heater status (on/off) to Domoticz server
+#endif
+
+#ifndef HEATER_STATUS_TEXT_MODE
+#define HEATER_STATUS_TEXT_MODE  false // Set heater status has text value in domoticz ( instead of On Off value)
+#endif
+
+#ifndef ID_HEATER_DOMOTICZ
+#define ID_HEATER_DOMOTICZ 0 //Domoticz heater ID 
+#endif
+
+
 #ifndef SENSOR_PIN_DHT
 #define SENSOR_PIN_DHT D2  // DHT pin (D1 on ESP8266 NodeMCU dev board)
 #endif
