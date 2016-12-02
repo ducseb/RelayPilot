@@ -21,7 +21,7 @@
 
 
 // EEPROM config flag, increment this each time EEPROM need to be rewrited
-#define ID_PARAM_PROFIL_VERSION 2019
+#define ID_PARAM_PROFIL_VERSION 2022
 
 
 
@@ -35,7 +35,6 @@
 //Import the config files
 #include  "RelayPilotConfig.h" //Import config
 #include  "RelayPilotConfig_default.h" //Import config
-
 
 
 #include <DallasTemperature.h>
@@ -404,7 +403,7 @@ void GetStatusHeater(bool modeText,bool sendInfo)
    AjouteInfoDebug("Mode chauffage: "+modeChauffage);     
   
     String modeBoolean="0";
-    if(modeChauffage!="arret")modeBoolean=1;
+    if(modeChauffage!="Arret")modeBoolean=1;
     
     if(sendInfo){
       if(modeText)SendTextStatusToDomoticz(modeChauffage,laConfigDuModule.DomoticzHeaterSensorsID,false);
@@ -455,7 +454,7 @@ void SendTextStatusToDomoticz(String text,int deviceID,bool modeNvalue)
   url += text;
   }
  
-
+ 
   SendDataToDomoticzServer(url);
 }
 
@@ -479,9 +478,9 @@ void SendDataToDomoticzServer(String url)
   
   
   
-   //AjouteInfoDebug("Requesting URL: ");
+  AjouteInfoDebug("Requesting URL: ");
    
-  //AjouteInfoDebug(url);
+  AjouteInfoDebug(url);
   
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                "Host: " + laConfigDuModule.hostDomoticz + "\r\n" + 
