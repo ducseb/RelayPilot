@@ -57,6 +57,7 @@ ChangeLog
 V2.2.1 - 2016/12/02
 ------------------------------------
 - Heater status can be send to domoticz has text or boolean (on/off)
+- Add device and time lua script for domoticz server
 
 V2.2 - 2016/12/01
 ------------------------------------
