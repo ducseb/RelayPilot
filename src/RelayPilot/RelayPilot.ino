@@ -1,7 +1,6 @@
 
 
-// RELAYPILOT V2.3
-// BY DUCSEB
+// RELAYPILOT V2.3.1
 // CONTROLE DE FIL PILOTE RADIATEUR  VIA UN MODULE ESP8266 ET UN SERVEUR DOMITICZ ou JEEDOM
 // USAGE:
 //  http://IP/temp :    Show current temperature 
@@ -24,7 +23,7 @@
 
 
 // EEPROM config flag, increment this each time EEPROM need to be rewrited
-#define ID_PARAM_PROFIL_VERSION 2101
+#define ID_PARAM_PROFIL_VERSION 2102
 
 
 
@@ -79,7 +78,7 @@ int RemonterInfoCapteurTousLesXSecondes=DELAY_BETWEEN_SENSORS_SEND_TO_DOMOTICZ;
 
 
 
-String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V2.2.1</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V2.2.1 BY DUCSEB'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
+String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V2.3.1</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V2.3.1'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
 String modeChauffage = "Comfort";
 String formParametre = String("<form action='/settingsSet' method=\"post\" class='form-horizontal'><fieldset><legend>Paramêtres</legend><div class='form-group'><label class='col-lg-2 control-label' for='parametre'>Valeur à modifier:</label> <div class='col-lg-10'><select class='form-control' type='select' name='parametre' id='parametre'>Valeur à modifier:<option value='ssid'>SSIDWIFI</option><option value='passwordssid'>Password wifi</option><option value='ipDevice'>Adresse IP</option><option value='ipGateway'>IP Passerelle</option><option value='NetMask'>Masque reseau</option><option value='DNS'>Serveur DNS</option><option value='DomoticzDeviceIDTemp'>Domoticz Device ID Temperature</option><option value='DomoticzDeviceIDHum'>Domoticz Device ID Humidite</option><option value='JeedomAPI'>API Key JEEDOM</option><option value='HostJeedom'>Adresse du serveur JEEDOM</option><option value='PortJeedom'>Port serveur Jeedom</option>")
                        +String("<option value='NomDevice'>Nom du l'appareil</option><option value='HostDomoticz'>Adresse du serveur domoticz</option><option value='PortDomoticz'>Port serveur Domoticz</option><option value='DHCP'>DHCP (0/1)</option></select></div></div><div class='form-group'><label class='col-lg-2 control-label' for='valeur'>Valeur:</label><div class='col-lg-10'><input type='text' name='valeur' value='' class='form-control'/></div></div><div class='form-group'> <div class='col-lg-10 col-lg-offset-2'><input type='submit' value='Valider' class='btn btn-success btn-lg btn-block'/></div></div></fieldset></form>");
@@ -104,6 +103,7 @@ struct ConfigurationDuModule {
   char PasswordWifi[255];
   int Capteur;
   bool SendHumidite;
+  bool SendData;
   int DomoticzDeviceIDTemp;  
   int DomoticzDeviceIDHum;
   bool SendHeaterStatusToDomoticz;
@@ -134,6 +134,7 @@ ConfigurationDuModule ConfigModuleDefaut // Defauklt config
     WIFIPASSWORD, // Wifi password
     TYPE_CAPTEUR, //1=DS18B20 2=DHT11 3=DHT22
     SEND_HUMIDITY_DHT22, // Envoi de l'humidite à domoticz    
+    SEND_DATA, //SEND DATA do domotic server
     IDCAPTEURDOMOTICZTEMP, // Domoticz ID  Temperature
     IDCAPTEURDOMOTICZHUM, // Domoticz ID  Humidite
     SEND_HEATER_STATUS_DOMOTICZ, //Send heater status data to domoticz server (text sensors),
@@ -304,7 +305,7 @@ void setup() {
 void loop() 
 {
 
-  if(modePointAcces==false)
+  if(modePointAcces==false && laConfigDuModule.SendData)
   {
     if((compteurBoucle/2)>RemonterInfoCapteurTousLesXSecondes)
     {   
@@ -346,7 +347,7 @@ void loop()
   
   
   server.handleClient();
-  if(modePointAcces)
+  if(modePointAcces || laConfigDuModule.SendData==false)
   {
     delay(50);  
   }
@@ -670,7 +671,7 @@ InfoServeur+=ConstuireLigneAccueil("Cle API Jeedom",String(laConfigDuModule.Jeed
   InfoServeur.toCharArray(infoServeurChar,(InfoServeur.length()+1));
   InfoServeur="";
   
-  server.send(200, "text/html", MettreEnFormeTexte(infoServeurChar,"NODEMCU RELAYPILOT V0.2"));  
+  server.send(200, "text/html", MettreEnFormeTexte(infoServeurChar,"NODEMCU RELAYPILOT V2.3.1"));  
 }
 
 
