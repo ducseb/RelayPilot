@@ -1,8 +1,8 @@
 
 
-// RELAYPILOT V2.2.11
+// RELAYPILOT V2.3
 // BY DUCSEB
-// CONTROLE DE FIL PILOTE RADIATEUR  VIA UN MODULE ESP8266 ET UN SERVEUR DOMITICZ
+// CONTROLE DE FIL PILOTE RADIATEUR  VIA UN MODULE ESP8266 ET UN SERVEUR DOMITICZ ou JEEDOM
 // USAGE:
 //  http://IP/temp :    Show current temperature 
 //  http://IP/tempsend :    Show current temperature and send to Domoticz server
@@ -15,13 +15,16 @@
 //  http://IP/APMode:   Active le mode AP pour la config
 //  http://IP/reboot:   Reboot le module
 //  http://IP/update:   Update the module with OTA ( see http://esp8266.github.io/Arduino/versions/2.1.0-rc2/doc/ota_updates/ota_updates.html)
+//  http://IP/tempdata: Show raw temp data on body response
+//  http://IP/humiditydata: Show raw temp data on body response
+//  http://IP/statusdata: Show raw temp data on body response
 
 // Works with DS18B20 temp sensors or DHT11/DHT22 temp/humidity sensor
 
 
 
 // EEPROM config flag, increment this each time EEPROM need to be rewrited
-#define ID_PARAM_PROFIL_VERSION 2022
+#define ID_PARAM_PROFIL_VERSION 2101
 
 
 
@@ -78,7 +81,7 @@ int RemonterInfoCapteurTousLesXSecondes=DELAY_BETWEEN_SENSORS_SEND_TO_DOMOTICZ;
 
 String modelePage= "<html><head><title>%TITRE%</title>  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"><link href=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css\" rel=\"stylesheet\"/><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js\"></script><link href=\"https://bootswatch.com/darkly/bootstrap.min.css\" rel=\"stylesheet\"></head><body><nav class='navbar navbar-inverse'><div class='container-fluid'><div class='navbar-header'><a href='/' class='navbar-brand'>RELAYPILOT V2.2.1</a></div></div></nav><div class='row'><div class='col-lg-4'><img src='http://www.realogi.fr/img/RelayPilotLogo.png' alt='NODEMCU RELAYPILOT V2.2.1 BY DUCSEB'></div><div class='col-lg-6'>%CONTENU%</div></div></body></html>";
 String modeChauffage = "Comfort";
-String formParametre = String("<form action='/settingsSet' method=\"post\" class='form-horizontal'><fieldset><legend>Paramêtres</legend><div class='form-group'><label class='col-lg-2 control-label' for='parametre'>Valeur à modifier:</label> <div class='col-lg-10'><select class='form-control' type='select' name='parametre' id='parametre'>Valeur à modifier:<option value='ssid'>SSIDWIFI</option><option value='passwordssid'>Password wifi</option><option value='ipDevice'>Adresse IP</option><option value='ipGateway'>IP Passerelle</option><option value='NetMask'>Masque reseau</option><option value='DNS'>Serveur DNS</option><option value='DomoticzDeviceIDTemp'>Domoticz Device ID Temperature</option><option value='DomoticzDeviceIDHum'>Domoticz Device ID Humidite</option>")
+String formParametre = String("<form action='/settingsSet' method=\"post\" class='form-horizontal'><fieldset><legend>Paramêtres</legend><div class='form-group'><label class='col-lg-2 control-label' for='parametre'>Valeur à modifier:</label> <div class='col-lg-10'><select class='form-control' type='select' name='parametre' id='parametre'>Valeur à modifier:<option value='ssid'>SSIDWIFI</option><option value='passwordssid'>Password wifi</option><option value='ipDevice'>Adresse IP</option><option value='ipGateway'>IP Passerelle</option><option value='NetMask'>Masque reseau</option><option value='DNS'>Serveur DNS</option><option value='DomoticzDeviceIDTemp'>Domoticz Device ID Temperature</option><option value='DomoticzDeviceIDHum'>Domoticz Device ID Humidite</option><option value='JeedomAPI'>API Key JEEDOM</option><option value='HostJeedom'>Adresse du serveur JEEDOM</option><option value='PortJeedom'>Port serveur Jeedom</option>")
                        +String("<option value='NomDevice'>Nom du l'appareil</option><option value='HostDomoticz'>Adresse du serveur domoticz</option><option value='PortDomoticz'>Port serveur Domoticz</option><option value='DHCP'>DHCP (0/1)</option></select></div></div><div class='form-group'><label class='col-lg-2 control-label' for='valeur'>Valeur:</label><div class='col-lg-10'><input type='text' name='valeur' value='' class='form-control'/></div></div><div class='form-group'> <div class='col-lg-10 col-lg-offset-2'><input type='submit' value='Valider' class='btn btn-success btn-lg btn-block'/></div></div></fieldset></form>");
 
 
@@ -108,6 +111,13 @@ struct ConfigurationDuModule {
   int DomoticzHeaterSensorsID;  
   char hostDomoticz[255];
   int hostDomoticzPort;
+  bool DomoticzMode;
+  bool JeedomMode;
+  char JeedomAPIKey[255];
+  char hostJeedom[255];
+  int hostJeedomPort;
+  int JeedomDeviceIDTemp;
+  int JeedomDeviceIDHum;
 };
 
 //Default configuration, editable with web interface
@@ -130,7 +140,16 @@ ConfigurationDuModule ConfigModuleDefaut // Defauklt config
     HEATER_STATUS_TEXT_MODE, //Send heater status has text if set to true
     ID_HEATER_DOMOTICZ, //Heater status text sensors ID
     HOSTDOMOTICZ,
-    HOSTDOMOTICZPORT //Domoticz Port
+    HOSTDOMOTICZPORT, //Domoticz Port
+    DOMOTICZ_MODE, //Domoticz Mode
+    JEEDOM_MODE, //Jeedom mode activated
+    JEEDOM_API_KEY, // Jeedom API key
+    HOST_JEEDOM, // Jeedom Hostname
+    PORT_JEEDOM, // Jeedom Port
+    JEEDOMDEVICEIDTEMP,
+    JEEDOMDEVICEIDHUM
+    
+    
 };
 
 
@@ -230,8 +249,9 @@ void setup() {
   server.on("/settings", InitFormSettings);
   server.on("/settingsSet", ChangeParamValue);
   server.on("/reboot", RebootPage);
-  
-  
+  server.on("/tempdata", PageTempRaw);
+  server.on("/humiditydata", PageHumRaw);
+  server.on("/statusdata", PageStatusRaw);
   /*server.on("/inline", [](){
     server.send(200, "text/plain", "this works as well");
   });*/
@@ -370,7 +390,10 @@ float GetTemperateureDHT(bool sendInfo)
    AjouteInfoDebug("Temperature: "+String(t)+" *C ");     
     
     
-    if(sendInfo)SendTempHumidityToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp);
+    if(sendInfo){
+      if(laConfigDuModule.DomoticzMode)SendTempHumidityToDomoticz(t,0,false,laConfigDuModule.DomoticzDeviceIDTemp);
+      if(laConfigDuModule.JeedomMode)SendValToJeedom(t,laConfigDuModule.JeedomDeviceIDTemp);
+    }
 
      return t;
 }
@@ -381,7 +404,11 @@ float GetTemperateureHumDHT(bool sendInfo)
    float h = dht.readHumidity();
    AjouteInfoDebug("Humidity: "+String(h)+" purcent ");      
     
-    if(sendInfo)SendTempHumidityToDomoticz(t,h,true,laConfigDuModule.DomoticzDeviceIDTemp);
+    if(sendInfo){
+      if(laConfigDuModule.DomoticzMode)SendTempHumidityToDomoticz(t,h,true,laConfigDuModule.DomoticzDeviceIDTemp);
+       if(laConfigDuModule.JeedomMode)SendValToJeedom(t,laConfigDuModule.JeedomDeviceIDTemp);
+       if(laConfigDuModule.JeedomMode)SendValToJeedom(t,laConfigDuModule.JeedomDeviceIDHum);
+    }
 
      return t;
 }
@@ -391,7 +418,10 @@ float GetHumiditeDHT(bool sendInfo)
    AjouteInfoDebug("Humidity: "+String(h)+" purcent ");      
     
     
-    if(sendInfo)SendTempHumidityToDomoticz(h,0,false,laConfigDuModule.DomoticzDeviceIDHum);
+    if(sendInfo){
+      if(laConfigDuModule.DomoticzMode)SendTempHumidityToDomoticz(h,0,false,laConfigDuModule.DomoticzDeviceIDHum);
+      if(laConfigDuModule.JeedomMode)SendValToJeedom(h,laConfigDuModule.JeedomDeviceIDHum);
+    }
 
      return h;
 }
@@ -420,6 +450,23 @@ void GetStatusHeater(bool modeText,bool sendInfo)
 //----------------SEND DATA TO DOMOTICZ SERVER ----------------------------------------------
 
 
+void SendValToJeedom(float v,int deviceID)
+{
+
+    // We now create a URI for the request
+  String url = "/core/api/jeeApi.php?apikey=";
+  url+=laConfigDuModule.JeedomAPIKey;
+  
+  url+="&type=virtual&id=";
+  url += deviceID;
+  url+="&value=";
+  url += v; 
+
+  SendDataToJeedomServer(url);
+}
+
+
+
 void SendTempHumidityToDomoticz(float t,float h,bool modeHumidite,int deviceID)
 {
 
@@ -436,7 +483,7 @@ void SendTempHumidityToDomoticz(float t,float h,bool modeHumidite,int deviceID)
   
  
 
-  SendDataToDomoticzServer(url);
+  SendDataToDomoticsServer(url);
 }
 
 void SendTextStatusToDomoticz(String text,int deviceID,bool modeNvalue)
@@ -455,12 +502,51 @@ void SendTextStatusToDomoticz(String text,int deviceID,bool modeNvalue)
   }
  
  
-  SendDataToDomoticzServer(url);
+  SendDataToDomoticsServer(url);
 }
 
-void SendDataToDomoticzServer(String url)
+void SendDataToDomoticsServer(String url)
 {
   AjouteInfoDebug("Envoi info sur Domoticz......................");
+  WiFiClient client;
+  
+  AjouteInfoDebug("Hote : "+String(laConfigDuModule.hostDomoticz));
+  AjouteInfoDebug("Port : "+String(laConfigDuModule.hostDomoticzPort));
+  
+
+  
+  
+  if (!client.connect(laConfigDuModule.hostDomoticz, laConfigDuModule.hostDomoticzPort)) {
+    AjouteInfoDebug("connection failed");
+    return;
+  }
+  
+  
+  
+  
+  
+  AjouteInfoDebug("Requesting URL: ");
+   
+  AjouteInfoDebug(url);
+  
+  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+               "Host: " + laConfigDuModule.hostDomoticz + "\r\n" + 
+               "Connection: close\r\n\r\n");
+   delay(10);
+   
+    while(client.available()){
+    String line = client.readStringUntil('\r');
+    //AjouteInfoDebug(line);    
+  }
+  
+  
+ AjouteInfoDebug("closing connection");
+ client.stop();
+}
+
+void SendDataToJeedomServer(String url)
+{
+  AjouteInfoDebug("Envoi info sur Jeedom......................");
   WiFiClient client;
   
   AjouteInfoDebug("Hote : "+String(laConfigDuModule.hostDomoticz));
@@ -550,8 +636,16 @@ void PageAcceuil()
   InfoServeur+="</ul><ul class='list-group'>";
 InfoServeur+=ConstuireLigneAccueil("ID du capteur Domoticz Temperature",String(laConfigDuModule.DomoticzDeviceIDTemp));
 InfoServeur+=ConstuireLigneAccueil("ID du capteur Domoticz Humidite (seul)",String(laConfigDuModule.DomoticzDeviceIDHum));
+
+InfoServeur+=ConstuireLigneAccueil("Mode Domoticz actif",String(laConfigDuModule.DomoticzMode));
 InfoServeur+=ConstuireLigneAccueil("Serveur Domoticz",String(laConfigDuModule.hostDomoticz));
 InfoServeur+=ConstuireLigneAccueil("Port HTTP du serveur Domoticz",String(laConfigDuModule.hostDomoticzPort));
+
+
+InfoServeur+=ConstuireLigneAccueil("Mode Jeedom actif",String(laConfigDuModule.JeedomMode));
+InfoServeur+=ConstuireLigneAccueil("Serveur Jeedom",String(laConfigDuModule.hostJeedom));
+InfoServeur+=ConstuireLigneAccueil("Port HTTP du serveur Jeedom",String(laConfigDuModule.hostJeedomPort));
+InfoServeur+=ConstuireLigneAccueil("Cle API Jeedom",String(laConfigDuModule.JeedomAPIKey));
     InfoServeur+="</ul><ul class='list-group'>";
     InfoServeur+=ConstuireLigneAccueil("Port capteur DS18B20","GPIO"+String(SENSOR_PIN_DS18B20));
         InfoServeur+=ConstuireLigneAccueil("Port capteur DHT","GPIO"+String(SENSOR_PIN_DHT));
@@ -600,6 +694,14 @@ void handleNotFound(){
 
 void PageTemp()
 {
+   PageTempFrameOrRaw(true);  
+}
+void PageTempRaw()
+{
+   PageTempFrameOrRaw(false);  
+}
+void PageTempFrameOrRaw(bool withFrame)
+{
   float temperature=0.0;
     if(laConfigDuModule.Capteur==ID_PARAM_CAPTEUR_DS18B20)
         temperature=GetTemperateureDS18B20(false);
@@ -608,11 +710,29 @@ void PageTemp()
         temperature=GetTemperateureDHT(false);        
       }
    String texte= "<b>Temperature</b>:"+String(temperature);   
-   EnvoyerInfoClientHTTPAvecCadre(texte,"Temperature");
+   if(withFrame)EnvoyerInfoClientHTTPAvecCadre(texte,"Temperature");
+   else EnvoyerInfoClientHTTPRaw(String(temperature));
    
    
 }
 void PageHum()
+{
+  PageHumRawOrFrame(true);
+}
+void PageHumRaw()
+{
+  PageHumRawOrFrame(false);
+}
+
+void PageStatusRaw()
+{
+   String modeBoolean="0";
+    if(modeChauffage!="Arret")modeBoolean="1";
+    EnvoyerInfoClientHTTPRaw(modeBoolean);
+}
+
+
+void PageHumRawOrFrame(bool withFrame)
 {
     float humidite=0.0;
     
@@ -622,7 +742,8 @@ void PageHum()
    
    
    String texte= "<b>Humidite</b>:"+String(humidite);   
-   EnvoyerInfoClientHTTPAvecCadre(texte,"Humidité");
+   if(withFrame) EnvoyerInfoClientHTTPAvecCadre(texte,"Humidité");
+   else EnvoyerInfoClientHTTPRaw(String(humidite));
    
    
 }
@@ -682,7 +803,11 @@ void EnvoyerInfoClientHTTPAvecCadre(String leTexte,String LeTitre)
 }
 
 
-
+void EnvoyerInfoClientHTTPRaw(String leTexte)
+{
+   server.send(200, "text/html", leTexte);  
+   DebugInfo="";
+}
 
 
 
@@ -791,7 +916,11 @@ bool EEPROMReadConfig(){
     Serial.println("DomoticzDeviceID Humidite:"+String(laConfigLue.DomoticzDeviceIDHum));    
     Serial.println("hostDomoticz:"+String(laConfigLue.hostDomoticz));
     Serial.println("hostDomoticzPort:"+String(laConfigLue.hostDomoticzPort));
-    
+     Serial.println("Mode Domoticz:"+String(laConfigLue.DomoticzMode));
+    Serial.println("Mode Jeedom:"+String(laConfigLue.JeedomMode));
+     Serial.println("hostJeedom:"+String(laConfigLue.hostJeedom));
+    Serial.println("hostJeedomPort:"+String(laConfigLue.hostJeedomPort));
+    Serial.println("JeedomAPIKey:"+String(laConfigLue.JeedomAPIKey));
     return true;
    }
    else
@@ -910,6 +1039,26 @@ void ChangeParamValue(){
        Serial.println("Modification du port domoticz:"+String(laConfigDuModule.hostDomoticzPort));
        laConfigDuModule.hostDomoticzPort=portDomoticz;
        ConfigModifier=true;
+    }
+     if(parametre=="HostJeedom")
+    {
+      valeur.toCharArray(laConfigDuModule.hostJeedom,255);
+      Serial.println("Modification du host:"+String(laConfigDuModule.hostJeedom));
+      ConfigModifier=true;
+    }
+     if(parametre=="PortJeedom")
+    {
+       int port = valeur.toInt();
+       if(port==0)port=80;            
+       Serial.println("Modification du port domoticz:"+String(laConfigDuModule.hostJeedomPort));
+       laConfigDuModule.hostJeedomPort=port;
+       ConfigModifier=true;
+    }
+     if(parametre=="JeedomAPI")
+    {
+      valeur.toCharArray(laConfigDuModule.JeedomAPIKey,255);
+      Serial.println("Modification du host:"+String(laConfigDuModule.JeedomAPIKey));
+      ConfigModifier=true;
     }
     if(parametre=="DHCP")
     {

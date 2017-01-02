@@ -25,8 +25,16 @@
 
 #define DELAY_BETWEEN_SENSORS_SEND_TO_DOMOTICZ 20
 
+#define DOMOTICZ_MODE true
+#define JEEDOM_MODE false
 
-#include  "RelayPilotConfig_bureau.h" //Import config
+#define JEEDOM_API_KEY "xxxxxxxxxxxxxx" // APIKEY of jeedom instance
+#define HOST_JEEDOM "domoticz.hostname or IP here" //JEEDOM host
+#define PORT_JEEDOM 80 // IP port of JEEDOM API
+#define JEEDOMDEVICEIDTEMP 0 //Device ID for virtual temp sensors on Jeedom
+#define JEEDOMDEVICEIDHUM 0//Device ID for virtual humidity sensors on Jeedom
+
+//#include  "RelayPilotConfig_bureau.h" //Import config
 //#include  "RelayPilotConfig_chambre.h" //Import config
 //#include  "RelayPilotConfig_salon.h" //Import config
 //#include  "RelayPilotConfig_taff.h" //Import config

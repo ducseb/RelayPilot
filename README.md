@@ -1,8 +1,7 @@
 ﻿#### RelayPilot
 ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domoticz server
 
-RELAYPILOT V2.2.1
-BY DUCSEB
+RELAYPILOT V2.3
 ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domoticz server
 
 <img src="https://cloud.githubusercontent.com/assets/646980/10129874/4af6b26a-65c3-11e5-8261-0ce86ecc34dc.jpg" ></img> 
@@ -23,6 +22,9 @@ ESP8266 Arduino code to control heater pilot wire and send Temp/Humidity to Domo
 - http://IP/APMode:   Activate AP mode for setting , SSID=device name , password = device name
 - http://IP/reboot:   Reboot
 - http://IP/update:  Update the module with OTA ( see http://esp8266.github.io/Arduino/versions/2.1.0-rc2/doc/ota_updates/ota_updates.html)
+- http://IP/tempdata: Show raw temp data on body response
+- http://IP/humiditydata: Show raw temp data on body response
+- http://IP/statusdata: Show raw temp data on body response
 
 Works with DS18B20 sensors or DHT11/DHT22 temp/humidity sensors
 
@@ -55,6 +57,10 @@ Edit RelayPilotConfig.h with your config info (ssid wifi, password,etc...)
 
 
 ChangeLog
+V2.3 - 2016/02/01
+------------------------------------
+- Add Raw GET data value (temp, humidity and status)
+- Add Jeedom mode for virtual device (like domoticz)
 
 V2.2.1 - 2016/12/02
 ------------------------------------

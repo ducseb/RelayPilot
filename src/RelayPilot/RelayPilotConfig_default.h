@@ -96,3 +96,36 @@
 #ifndef SEND_HUMIDITY_DHT22
 #define SEND_HUMIDITY_DHT22 true
 #endif
+
+
+
+#ifndef DOMOTICZ_MODE
+#define DOMOTICZ_MODE true
+#endif
+
+
+#ifndef JEEDOM_MODE
+#define JEEDOM_MODE false
+#endif
+
+#ifndef JEEDOM_API_KEY
+#define JEEDOM_API_KEY "xxxxxxx"
+#endif
+
+#ifndef HOST_JEEDOM
+#define HOST_JEEDOM "xxxxxxx"
+#endif
+
+#ifndef PORT_JEEDOM
+#define PORT_JEEDOM 80
+#endif
+
+#ifndef JEEDOMDEVICEIDHUM
+#define JEEDOMDEVICEIDHUM 0
+#endif
+
+#ifndef JEEDOMDEVICEIDTEMP
+#define JEEDOMDEVICEIDTEMP 0
+#endif
+
+
